@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CLUSTER_NAME=${1:-"python-apm-demo"}
+CLUSTER_NAME=${1:-"app-signals-demo"}
 REGION=${2:-"us-east-2"}
 NAMESPACE=${3:-"default"}
 OPERATION=${4:-"apply"}
