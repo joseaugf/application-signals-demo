@@ -11,7 +11,8 @@ cd "$(dirname "$0")"
 
 cd ../../../terraform/eks/
 
-db_endpoint=`terraform output -raw postgres_endpoint`
+#db_endpoint=`terraform output -raw postgres_endpoint`
+db_endpoint='petclinic-database.cb6q80qoexu5.us-east-2.rds.amazonaws.com"
 
 host=$(echo $db_endpoint | awk -F ':' '{print $1}')
 port=$(echo $db_endpoint | awk -F ':' '{print $2}')
