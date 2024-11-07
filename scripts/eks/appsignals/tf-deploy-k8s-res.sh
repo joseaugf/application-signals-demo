@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CLUSTER_NAME=${1:-"app-signals-demo"}
+CLUSTER_NAME=${1:-"python-apm-demo"}
 REGION=${2:-"us-east-2"}
 NAMESPACE=${3:-"default"}
 OPERATION=${4:-"apply"}
@@ -11,8 +11,7 @@ cd "$(dirname "$0")"
 
 cd ../../../terraform/eks/
 
-#db_endpoint=`terraform output -raw postgres_endpoint`
-db_endpoint='petclinic-database.cb6q80qoexu5.us-east-2.rds.amazonaws.com"
+db_endpoint=`terraform output -raw postgres_endpoint`
 
 host=$(echo $db_endpoint | awk -F ':' '{print $1}')
 port=$(echo $db_endpoint | awk -F ':' '{print $2}')
@@ -24,7 +23,7 @@ do
     sed -e "s/111122223333.dkr.ecr.us-west-2/$ACCOUNT_ID.dkr.ecr.$REGION/g" -e 's#\${REGION}'"#${REGION}#g" -e 's#\${DB_SERVICE_HOST}'"#${host}#g" $config | kubectl ${OPERATION} --namespace=$NAMESPACE -f -
 done
 
-sleep 400s
+sleep 60s
 
 # Save the endpoint URL to a variable
 endpoint=$(kubectl get ingress -o json  --output jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
