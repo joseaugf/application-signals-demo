@@ -23,7 +23,7 @@ do
     sed -e "s/111122223333.dkr.ecr.us-west-2/$ACCOUNT_ID.dkr.ecr.$REGION/g" -e 's#\${REGION}'"#${REGION}#g" -e 's#\${DB_SERVICE_HOST}'"#${host}#g" $config | kubectl ${OPERATION} --namespace=$NAMESPACE -f -
 done
 
-sleep 300s
+sleep 400s
 
 # Save the endpoint URL to a variable
 endpoint=$(kubectl get ingress -o json  --output jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
