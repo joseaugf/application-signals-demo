@@ -101,7 +101,7 @@ module "eks" {
     default = {
       desired_size = 3
       # iam_role_additional_policies = ["arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"]
-      instance_types = ["t3.large"]
+      instance_types = ["m5.large"]
       tags = {
         Owner = "default"
       }
