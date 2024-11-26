@@ -1,11 +1,11 @@
-#resource "aws_eks_addon" "cloudwatch_observability" {
-#  cluster_name                = var.cluster_name
-#  addon_name                  = "amazon-cloudwatch-observability"
-#  addon_version               = var.cloudwatch_observability_addon_version
-#  service_account_role_arn    = module.irsa_cloudwatch_observability.iam_role_arn
-#  resolve_conflicts_on_update = "PRESERVE"
-#  depends_on = [ module.eks ]
-#}
+resource "aws_eks_addon" "cloudwatch_observability" {
+  cluster_name                = var.cluster_name
+  addon_name                  = "amazon-cloudwatch-observability"
+  addon_version               = var.cloudwatch_observability_addon_version
+  service_account_role_arn    = module.irsa_cloudwatch_observability.iam_role_arn
+  resolve_conflicts_on_update = "PRESERVE"
+  depends_on = [ module.eks ]
+}
 
 module "irsa_cloudwatch_observability" {
   #checkov:skip=CKV_TF_1:sub-module hash key ignored
