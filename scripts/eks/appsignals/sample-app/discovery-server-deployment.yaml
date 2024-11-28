@@ -29,7 +29,7 @@ spec:
             - --
             - java
             - org.springframework.boot.loader.JarLauncher
-          image: 111122223333.dkr.ecr.us-west-2.amazonaws.com/springcommunity/spring-petclinic-discovery-server:latest
+          image: public.ecr.aws/r9n6v8l1/springcommunity/spring-petclinic-discovery-server:latest
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false
