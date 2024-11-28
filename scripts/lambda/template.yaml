@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  BillingInfoProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.13
+      CodeUri: ./src
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: BillingInfo
+        - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          TABLE_NAME: BillingInfo
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /process-billing
+            Method: get
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "billing-info-bucket-${AWS::Region}-${AWS::AccountId}"
+
+Outputs:
+  BillingInfoProcessorFunction:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt BillingInfoProcessor.Arn
+
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/process-billing"
+
+  S3BucketName:
+    Description: "S3 bucket name for storing artifacts"
+    Value: !Ref S3Bucket
