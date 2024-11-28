@@ -10,7 +10,13 @@ Resources:
       CodeUri: ./src
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: BillingInfo        - AWSLambdaBasicExecutionRole
+            TableName: BillingInfo
+        - Statement:
+            Effect: Allow
+            Action:
+              - dynamodb:Scan
+            Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/BillingInfo"
+        - AWSLambdaBasicExecutionRole
         - Statement:
             Effect: Allow
             Action:
