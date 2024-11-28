@@ -10,8 +10,13 @@ Resources:
       CodeUri: ./src
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: BillingInfo
-        - AWSLambdaBasicExecutionRole
+            TableName: BillingInfo        - AWSLambdaBasicExecutionRole
+        - Statement:
+            Effect: Allow
+            Action:
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+            Resource: "*"
       Environment:
         Variables:
           TABLE_NAME: BillingInfo
