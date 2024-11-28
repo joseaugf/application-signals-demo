@@ -1,4 +1,4 @@
-i#!/bin/bash
+#!/bin/bash
 
 # Script to configure health checks for all target groups with 200 and 404 response codes
 
