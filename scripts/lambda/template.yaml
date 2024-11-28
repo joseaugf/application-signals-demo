@@ -15,6 +15,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: BillingInfo
+      Timeout: 60
       Events:
         ApiEvent:
           Type: Api
