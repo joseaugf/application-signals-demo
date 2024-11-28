@@ -18,15 +18,15 @@ port=$(echo $db_endpoint | awk -F ':' '{print $2}')
 
 cd ../../scripts/eks/appsignals/
 
-#for config in $(ls ./sample-app/*.yaml)
-#do
-#    sed -e "s/111122223333.dkr.ecr.us-west-2/$ACCOUNT_ID.dkr.ecr.$REGION/g" -e 's#\${REGION}'"#${REGION}#g" -e 's#\${DB_SERVICE_HOST}'"#${host}#g" $config | kubectl ${OPERATION} --namespace=$NAMESPACE -f -
-#done
-
 for config in $(ls ./sample-app/*.yaml)
 do
-    sed -e 's#\${REGION}'"#${REGION}#g" -e 's#\${DB_SERVICE_HOST}'"#${host}#g" $config | kubectl ${OPERATION} --namespace=$NAMESPACE -f -
+    sed -e "s/111122223333.dkr.ecr.us-west-2/$ACCOUNT_ID.dkr.ecr.$REGION/g" -e 's#\${REGION}'"#${REGION}#g" -e 's#\${DB_SERVICE_HOST}'"#${host}#g" $config | kubectl ${OPERATION} --namespace=$NAMESPACE -f -
 done
+
+#for config in $(ls ./sample-app/*.yaml)
+#do
+#    sed -e 's#\${REGION}'"#${REGION}#g" -e 's#\${DB_SERVICE_HOST}'"#${host}#g" $config | kubectl ${OPERATION} --namespace=$NAMESPACE -f -
+#done
 
 sleep 60s
 
@@ -34,9 +34,9 @@ sleep 60s
 endpoint=$(kubectl get ingress -o json  --output jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
 
 # Start the traffic generator
-#ACCOUNT=$(aws sts get-caller-identity | jq -r '.Account')
-#sed -e "s/111122223333.dkr.ecr.us-west-2/$ACCOUNT.dkr.ecr.$REGION/g" -e "s/SAMPLE_APP_END_POINT/${endpoint}/g"  ./sample-app/traffic-generator/traffic-generator.yaml | kubectl apply --namespace=$NAMESPACE -f -
-sed -e "s/SAMPLE_APP_END_POINT/${endpoint}/g"  ./sample-app/traffic-generator/traffic-generator.yaml | kubectl apply --namespace=$NAMESPACE -f -
+ACCOUNT=$(aws sts get-caller-identity | jq -r '.Account')
+sed -e "s/111122223333.dkr.ecr.us-west-2/$ACCOUNT.dkr.ecr.$REGION/g" -e "s/SAMPLE_APP_END_POINT/${endpoint}/g"  ./sample-app/traffic-generator/traffic-generator.yaml | kubectl apply --namespace=$NAMESPACE -f -
+#sed -e "s/SAMPLE_APP_END_POINT/${endpoint}/g"  ./sample-app/traffic-generator/traffic-generator.yaml | kubectl apply --namespace=$NAMESPACE -f -
 
 # Print the endpoint
 echo "Started the traffic generator to send traffic to http://${endpoint}"

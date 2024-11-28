@@ -16,7 +16,7 @@ spec:
     spec:
       serviceAccountName: visits-service-account
       containers:
-        - image: public.ecr.aws/r9n6v8l1/python-petclinic-insurance-service:latest
+        - image: 111122223333.dkr.ecr.us-west-2.amazonaws.com/python-petclinic-insurance-service:latest
           # securityContext:
           #   runAsNonRoot: true
           #   allowPrivilegeEscalation: true

@@ -22,7 +22,7 @@ spec:
         io.kompose.service: config-server
     spec:
       containers:
-        - image: public.ecr.aws/r9n6v8l1/springcommunity/spring-petclinic-config-server:latest
+        - image: 111122223333.dkr.ecr.us-west-2.amazonaws.com/springcommunity/spring-petclinic-config-server:latest
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false

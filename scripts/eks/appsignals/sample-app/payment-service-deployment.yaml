@@ -16,7 +16,7 @@ spec:
     spec:
       serviceAccountName: visits-service-account
       containers:
-        - image: public.ecr.aws/r9n6v8l1/dotnet-petclinic-payment:latest
+        - image: 111122223333.dkr.ecr.us-west-2.amazonaws.com/dotnet-petclinic-payment:latest
           name: payment-service-dotnet
           env:
             - name: ASPNETCORE_ENVIRONMENT

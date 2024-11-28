@@ -32,7 +32,7 @@ spec:
             - --
             - java
             - org.springframework.boot.loader.JarLauncher
-          image: public.ecr.aws/r9n6v8l1/springcommunity/spring-petclinic-api-gateway:latest
+          image: 111122223333.dkr.ecr.us-west-2.amazonaws.com/springcommunity/spring-petclinic-api-gateway:latest
           env:
           - name: CONFIG_SERVER_URL
             value: http://config-server:8888
