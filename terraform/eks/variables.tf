@@ -3,5 +3,5 @@ variable "cluster_name" {
 }
 
 variable "cloudwatch_observability_addon_version" {
-  default = "v4.5.0-eksbuild.1"
+  default = "v4.2.0-eksbuild.1"
 }
