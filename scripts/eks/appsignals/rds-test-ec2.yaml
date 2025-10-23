@@ -309,6 +309,12 @@ Resources:
               
               args = parser.parse_args()
               
+              if not args.endpoint:
+                  print("Error: RDS endpoint not provided")
+                  print("Usage: ./stress-test.py [endpoint] --queries 500")
+                  print("Or set RDS_ENDPOINT in config.sh")
+                  sys.exit(1)
+              
               print(f"=== RDS Stress Test ===")
               print(f"Endpoint: {args.endpoint}")
               print(f"Database: {args.database}")
@@ -356,55 +362,69 @@ Resources:
           
           # Create README
           cat > /home/ec2-user/rds-tests/README.txt << 'EOF'
-          RDS Testing & Kubernetes Management Scripts
-          ============================================
+          ╔════════════════════════════════════════════════════════════╗
+          ║  Workshop Testing & Management Scripts                    ║
+          ║  All endpoints are pre-configured!                        ║
+          ╚════════════════════════════════════════════════════════════╝
           
-          RDS Testing:
-          -----------
-          1. Test Connection:
-             ./test-connection.sh <rds-endpoint>
-          
-          2. Run Stress Test:
-             ./stress-test.py <rds-endpoint> --queries 500 --connections 25
-          
-          3. Get RDS Endpoint:
-             aws rds describe-db-instances --query 'DBInstances[0].Endpoint.Address' --output text
-          
-          Kubernetes (EKS):
-          ----------------
-          1. Configure kubectl:
-             ./configure-kubectl.sh
-          
-          2. View pods:
-             kubectl get pods -A
-          
-          3. View services:
-             kubectl get services -A
-          
-          4. View logs:
-             kubectl logs -n <namespace> <pod-name> --tail=100 -f
-          
-          CloudWatch Logs:
+          📋 Quick Start:
           ---------------
-          1. View logs:
-             ./view-logs.sh <log-group-name> [minutes-ago]
+          # Load configuration (shows all endpoints)
+          source config.sh
           
-          2. List log groups:
-             aws logs describe-log-groups --query 'logGroups[*].logGroupName' --output table
+          🗄️  RDS Testing (No endpoint needed!):
+          -------------------------------------
+          # Test connection (uses pre-configured endpoint)
+          ./test-connection.sh
           
-          Examples:
-          ---------
-          # RDS
-          ./test-connection.sh mydb.abc123.us-east-1.rds.amazonaws.com
-          ./stress-test.py mydb.abc123.us-east-1.rds.amazonaws.com --queries 1000
+          # Run stress tests
+          ./stress-test.py --queries 100        # Light
+          ./stress-test.py --queries 500        # Medium
+          ./stress-test.py --queries 1000       # Heavy
           
-          # Kubernetes
+          ☸️  Kubernetes (EKS):
+          --------------------
+          # Configure kubectl (auto-detects cluster)
           ./configure-kubectl.sh
-          kubectl get nodes
-          kubectl get pods -n default
           
-          # CloudWatch
+          # View resources
+          kubectl get pods -A
+          kubectl get services -A
+          kubectl get nodes
+          
+          # View logs
+          kubectl logs -n <namespace> <pod-name> --tail=100 -f
+          
+          📊 CloudWatch Logs:
+          ------------------
+          # View recent logs
           ./view-logs.sh /aws/eks/cluster/logs 10
+          ./view-logs.sh /aws/lambda/RDSStressTestFunction 5
+          
+          # List all log groups
+          aws logs describe-log-groups --query 'logGroups[*].logGroupName' --output table
+          
+          💡 Pro Tips:
+          -----------
+          # Check current configuration
+          source config.sh
+          
+          # Override RDS endpoint if needed
+          ./test-connection.sh custom-endpoint.rds.amazonaws.com
+          
+          # Run stress test with custom settings
+          ./stress-test.py --queries 2000 --connections 50
+          
+          # Watch pods in real-time
+          watch kubectl get pods -A
+          
+          📁 Available Scripts:
+          --------------------
+          config.sh              - Environment configuration
+          test-connection.sh     - Test RDS connectivity
+          stress-test.py         - RDS stress testing
+          configure-kubectl.sh   - Setup kubectl for EKS
+          view-logs.sh          - View CloudWatch logs
           EOF
           
           # Create kubectl config helper script
@@ -412,10 +432,13 @@ Resources:
           #!/bin/bash
           # Configure kubectl for EKS cluster
           
+          # Load configuration
+          source "$(dirname "$0")/config.sh" 2>/dev/null || true
+          
           echo "=== Configuring kubectl for EKS ==="
           
-          # Get EKS cluster name
-          CLUSTER_NAME=$(aws eks list-clusters --query 'clusters[0]' --output text)
+          # Use configured cluster or discover
+          CLUSTER_NAME=${EKS_CLUSTER:-$(aws eks list-clusters --query 'clusters[0]' --output text)}
           
           if [ -z "$CLUSTER_NAME" ] || [ "$CLUSTER_NAME" == "None" ]; then
               echo "❌ No EKS cluster found"
