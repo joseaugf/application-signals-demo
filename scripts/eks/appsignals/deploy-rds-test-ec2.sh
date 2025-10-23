@@ -24,6 +24,7 @@ fi
 VPC_ID=$(echo $RDS_INFO | jq -r '.DBSubnetGroup.VpcId')
 SECURITY_GROUP_ID=$(echo $RDS_INFO | jq -r '.VpcSecurityGroups[0].VpcSecurityGroupId')
 DB_ENDPOINT=$(echo $RDS_INFO | jq -r '.Endpoint.Address')
+RDS_ENDPOINT=$(echo $RDS_INFO | jq -r '.Endpoint.Address')
 
 echo "✓ VPC ID: $VPC_ID"
 echo "✓ Security Group ID: $SECURITY_GROUP_ID"
@@ -58,6 +59,7 @@ aws cloudformation deploy \
         VpcId="$VPC_ID" \
         SubnetId="$SUBNET_ID" \
         SecurityGroupId="$SECURITY_GROUP_ID" \
+        RDSEndpoint="$DB_ENDPOINT" \
     --capabilities CAPABILITY_NAMED_IAM \
     --no-fail-on-empty-changeset
 
@@ -97,17 +99,26 @@ if [ $? -eq 0 ]; then
     echo "# Or use AWS Console:"
     echo "https://console.aws.amazon.com/systems-manager/session-manager/$INSTANCE_ID"
     echo ""
-    echo "=== Testing RDS ==="
+    echo "=== Quick Start Guide ==="
     echo ""
-    echo "Once connected, run:"
-    echo "cd ~/rds-tests"
-    echo "cat README.txt"
+    echo "1. Connect to instance:"
+    echo "   aws ssm start-session --target $INSTANCE_ID"
     echo ""
-    echo "# Test connection:"
-    echo "./test-connection.sh $DB_ENDPOINT"
+    echo "2. Navigate to scripts:"
+    echo "   cd ~/rds-tests"
     echo ""
-    echo "# Run stress test:"
-    echo "./stress-test.py $DB_ENDPOINT --queries 500"
+    echo "3. View configuration:"
+    echo "   source config.sh"
+    echo ""
+    echo "4. Test RDS (no endpoint needed!):"
+    echo "   ./test-connection.sh"
+    echo "   ./stress-test.py --queries 500"
+    echo ""
+    echo "5. Configure kubectl (if EKS exists):"
+    echo "   ./configure-kubectl.sh"
+    echo "   kubectl get pods -A"
+    echo ""
+    echo "📖 For full documentation, see README.txt in ~/rds-tests"
     echo ""
 else
     echo "❌ Deployment failed"
