@@ -81,6 +81,9 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchFullAccessV2
+        - arn:aws:iam::aws:policy/CloudWatchApplicationSignalsFullAccess
       Policies:
         - PolicyName: RDSTestingPolicy
           PolicyDocument:
@@ -167,16 +170,37 @@ Resources:
           chmod +x kubectl
           mv kubectl /usr/local/bin/
 
-          # Install Node.js (required for Q CLI)
-          curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
-          dnf install -y nodejs
+          # Install uv (Python package manager for MCP servers)
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip3 install uv
 
-          # Install Q CLI globally
-          npm install -g @aws/amazon-q-developer-cli
+          # Install Amazon Q Desktop for ec2-user
+          su - ec2-user -c '
+            cd ~
+            curl --proto "=https" --tlsv1.2 -sSf "https://desktop-release.q.us-east-1.amazonaws.com/latest/q-x86_64-linux.zip" -o "q.zip"
+            unzip -q q.zip
+            rm q.zip
+            
+            # Add to PATH in .bashrc
+            echo "export PATH=\"\$HOME/.local/bin/:\$PATH\"" >> ~/.bashrc
+            
+            # Verify installation
+            ~/.local/bin/q --version || echo "Q installed, restart shell to use"
+          '
 
-          # Initialize Q CLI for both users
-          su - ec2-user -c "q --version" || true
-          su - ssm-user -c "q --version" || true
+          # Install Amazon Q Desktop for ssm-user
+          su - ssm-user -c '
+            cd ~
+            curl --proto "=https" --tlsv1.2 -sSf "https://desktop-release.q.us-east-1.amazonaws.com/latest/q-x86_64-linux.zip" -o "q.zip"
+            unzip -q q.zip
+            
+            
+            # Add to PATH in .bashrc
+            echo "export PATH=\"\$HOME/.local/bin/:\$PATH\"" >> ~/.bashrc
+            
+            # Verify installation
+            ~/.local/bin/q --version || echo "Q installed, restart shell to use"
+          '
 
           # Install CloudWatch agent
           wget -q https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
@@ -429,9 +453,11 @@ Resources:
           # Watch pods in real-time
           watch kubectl get pods -A
 
-          🤖 Amazon Q CLI:
-          ----------------
-          # Q CLI is pre-installed and ready to use!
+          🤖 Amazon Q Desktop:
+          --------------------
+          # Amazon Q is pre-installed in ~/.local/bin/q
+          # PATH is automatically configured after login
+
           q "how do I list all pods in kubernetes?"
           q "show me how to connect to RDS"
           q "explain this error: connection timeout"
@@ -439,6 +465,10 @@ Resources:
           # Get help with AWS CLI commands
           q "aws eks list-clusters"
           q "aws rds describe-db-instances"
+
+          # MCP servers available via uvx:
+          uvx awslabs.cloudwatch-mcp-server@latest
+          uvx awslabs.bedrock-kb-retrieval-mcp-server@latest
 
           📁 Available Scripts:
           --------------------
