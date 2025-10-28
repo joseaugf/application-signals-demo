@@ -23,6 +23,11 @@ Parameters:
     Description: EKS cluster name for automatic kubectl configuration
     Default: ""
 
+  S3BucketName:
+    Type: String
+    Description: S3 bucket containing workshop scripts and templates
+    Default: ""
+
   InstanceType:
     Type: String
     Default: t3.micro
@@ -120,6 +125,13 @@ Resources:
                   - ec2:DescribeSubnets
                   - ec2:DescribeVpcs
                 Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3BucketName}/*"
+                  - !Sub "arn:aws:s3:::${S3BucketName}"
 
   # Instance Profile
   EC2InstanceProfile:
@@ -148,68 +160,103 @@ Resources:
       UserData:
         Fn::Base64: |
           #!/bin/bash
-          set -e
+          # Enable error logging but don't exit on error
+          exec > >(tee /var/log/user-data.log)
+          exec 2>&1
+          echo "=== UserData execution started at $(date) ==="
 
           # Update system
-          dnf update -y
+          echo "Updating system packages..."
+          dnf update -y || echo "⚠ System update had issues"
 
           # Install basic tools
-          dnf install -y postgresql15 python3 python3-pip stress-ng jq git
+          echo "Installing basic tools..."
+          dnf install -y postgresql15 python3 python3-pip stress-ng jq git unzip || echo "⚠ Some packages failed to install"
 
           # Install psycopg2 for Python
-          pip3 install psycopg2-binary boto3
+          echo "Installing Python packages..."
+          pip3 install psycopg2-binary boto3 || echo "⚠ Python packages had issues"
 
           # Install AWS CLI v2
+          echo "Installing AWS CLI v2..."
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -q awscliv2.zip
           ./aws/install
           rm -rf aws awscliv2.zip
 
           # Install kubectl
+          echo "Installing kubectl..."
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl
           mv kubectl /usr/local/bin/
 
+          # Create ssm-user FIRST before creating directories
+          echo "Creating ssm-user..."
+          if ! id -u ssm-user > /dev/null 2>&1; then
+            useradd -m -s /bin/bash ssm-user
+            echo "✓ ssm-user created"
+          else
+            echo "✓ ssm-user already exists"
+          fi
+
+          # Now create directories for both users
+          echo "Creating directories..."
+          mkdir -p /home/ec2-user/rds-tests
+          mkdir -p /home/ssm-user/rds-tests
+
           # Install uv (Python package manager for MCP servers)
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          pip3 install uv
+          echo "Installing uv for root..."
+          curl -LsSf https://astral.sh/uv/install.sh | sh || echo "⚠ uv install script had issues"
 
-          # Install Amazon Q Desktop for ec2-user
+          # Also install via pip as backup
+          pip3 install uv || echo "⚠ pip install uv had issues"
+
+          # Add uv to PATH for current session
+          export PATH="/root/.local/bin:$PATH"
+
+          # Install uv for ec2-user
+          echo "Installing uv for ec2-user..."
+          su - ec2-user -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' || echo "⚠ uv install for ec2-user had issues"
+
+          # Install uv for ssm-user
+          echo "Installing uv for ssm-user..."
+          su - ssm-user -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' || echo "⚠ uv install for ssm-user had issues"
+
+          # Install Amazon Q CLI (simpler than Desktop for headless)
+          echo "Installing Amazon Q CLI for ec2-user..."
           su - ec2-user -c '
-            cd ~
-            curl --proto "=https" --tlsv1.2 -sSf "https://desktop-release.q.us-east-1.amazonaws.com/latest/q-x86_64-linux.zip" -o "q.zip"
-            unzip -q q.zip
-            rm q.zip
-            
-            # Add to PATH in .bashrc
-            echo "export PATH=\"\$HOME/.local/bin/:\$PATH\"" >> ~/.bashrc
-            
-            # Verify installation
-            ~/.local/bin/q --version || echo "Q installed, restart shell to use"
-          '
+            mkdir -p ~/.local/bin
+            cd ~/.local/bin
+            # Download Q CLI binary
+            if curl -L "https://desktop-release.q.us-east-1.amazonaws.com/latest/q-x86_64-linux" -o q 2>/dev/null; then
+              chmod +x q
+              echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> ~/.bashrc
+              echo "✓ Amazon Q CLI installed"
+            else
+              echo "⚠ Failed to download Amazon Q CLI"
+            fi
+          ' || echo "⚠ Q installation for ec2-user had issues"
 
-          # Install Amazon Q Desktop for ssm-user
+          # Install Amazon Q CLI for ssm-user
+          echo "Installing Amazon Q CLI for ssm-user..."
           su - ssm-user -c '
-            cd ~
-            curl --proto "=https" --tlsv1.2 -sSf "https://desktop-release.q.us-east-1.amazonaws.com/latest/q-x86_64-linux.zip" -o "q.zip"
-            unzip -q q.zip
-            
-            
-            # Add to PATH in .bashrc
-            echo "export PATH=\"\$HOME/.local/bin/:\$PATH\"" >> ~/.bashrc
-            
-            # Verify installation
-            ~/.local/bin/q --version || echo "Q installed, restart shell to use"
-          '
+            mkdir -p ~/.local/bin
+            cd ~/.local/bin
+            # Download Q CLI binary
+            if curl -L "https://desktop-release.q.us-east-1.amazonaws.com/latest/q-x86_64-linux" -o q 2>/dev/null; then
+              chmod +x q
+              echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> ~/.bashrc
+              echo "✓ Amazon Q CLI installed for ssm-user"
+            else
+              echo "⚠ Failed to download Amazon Q CLI for ssm-user"
+            fi
+          ' || echo "⚠ Q installation for ssm-user had issues"
 
           # Install CloudWatch agent
+          echo "Installing CloudWatch agent..."
           wget -q https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
           rpm -U ./amazon-cloudwatch-agent.rpm
           rm -f ./amazon-cloudwatch-agent.rpm
-
-          # Create test scripts directory for both users
-          mkdir -p /home/ec2-user/rds-tests
-          mkdir -p /home/ssm-user/rds-tests
 
           # Create configuration file with RDS endpoint
           cat > /home/ec2-user/rds-tests/config.sh << 'CONFIGEOF'
@@ -547,18 +594,67 @@ Resources:
           aws logs tail "$LOG_GROUP" --since "${MINUTES}m" --follow
           EOF
 
-          chmod +x /home/ec2-user/rds-tests/*.sh
+          # Download the CloudFormation template and deployment script if S3 bucket is configured
+          if [ ! -z "${S3BucketName}" ]; then
+            echo "Downloading scripts from S3..."
+            aws s3 cp s3://${S3BucketName}/scripts/rds-test-ec2.yaml /home/ec2-user/rds-tests/ 2>/dev/null || echo "⚠ Template not found in S3"
+            aws s3 cp s3://${S3BucketName}/scripts/deploy-rds-test-ec2.sh /home/ec2-user/rds-tests/ 2>/dev/null || echo "⚠ Deploy script not found in S3"
+          fi
+
+          # Set permissions and ownership for ec2-user
+          echo "Setting permissions for ec2-user..."
+          chmod +x /home/ec2-user/rds-tests/*.sh 2>/dev/null || echo "⚠ No .sh files to chmod"
+          chmod +x /home/ec2-user/rds-tests/*.py 2>/dev/null || echo "⚠ No .py files to chmod"
           chown -R ec2-user:ec2-user /home/ec2-user/rds-tests
 
-          # Copy scripts to ssm-user directory and create symlink
-          cp -r /home/ec2-user/rds-tests/* /home/ssm-user/rds-tests/
+          # Copy scripts to ssm-user directory
+          echo "Copying scripts to ssm-user..."
+          cp -r /home/ec2-user/rds-tests/* /home/ssm-user/rds-tests/ 2>/dev/null || echo "⚠ Copy to ssm-user had issues"
           chown -R ssm-user:ssm-user /home/ssm-user/rds-tests
 
           # Create symlink for easy access
-          ln -sf /home/ssm-user/rds-tests /home/ssm-user/scripts
+          ln -sf /home/ssm-user/rds-tests /home/ssm-user/scripts 2>/dev/null || echo "⚠ Symlink creation had issues"
 
           # Signal completion
-          echo "✓ EC2 instance setup complete!" > /tmp/setup-complete.txt
+          echo "✓ EC2 instance setup complete at $(date)!" | tee /tmp/setup-complete.txt
+          echo "=== UserData execution completed at $(date) ===" 
+
+          # Create a summary of what was installed
+          cat > /home/ec2-user/setup-summary.txt << 'SUMMARYEOF'
+          EC2 Workshop Instance Setup Summary
+          ====================================
+
+          Installed Tools:
+          - PostgreSQL 15 client
+          - Python 3 with psycopg2 and boto3
+          - AWS CLI v2
+          - kubectl
+          - stress-ng
+          - jq, git
+          - uv (Python package manager)
+          - Amazon Q CLI
+          - CloudWatch Agent
+
+          Users Configured:
+          - ec2-user (default user)
+          - ssm-user (for Systems Manager sessions)
+
+          Scripts Location:
+          - /home/ec2-user/rds-tests/
+          - /home/ssm-user/rds-tests/
+
+          Quick Start:
+          cd ~/rds-tests
+          source config.sh
+          ./test-connection.sh
+
+          For full documentation, see:
+          cat ~/rds-tests/README.txt
+          SUMMARYEOF
+
+          chown ec2-user:ec2-user /home/ec2-user/setup-summary.txt
+          cp /home/ec2-user/setup-summary.txt /home/ssm-user/
+          chown ssm-user:ssm-user /home/ssm-user/setup-summary.txt
 
 Outputs:
   InstanceId:
