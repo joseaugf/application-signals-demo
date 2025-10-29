@@ -117,6 +117,8 @@ Resources:
                   - eks:DescribeNodegroup
                   - eks:ListNodegroups
                   - eks:AccessKubernetesApi
+                  - eks:CreateAccessEntry
+                  - eks:AssociateAccessPolicy
                 Resource: "*"
               - Effect: Allow
                 Action:
