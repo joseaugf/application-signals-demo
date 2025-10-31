@@ -166,6 +166,32 @@ aws cloudwatch put-metric-alarm \
 
 echo -e "${GREEN}✓ Memory alarm created (threshold: 500MB, period: 1 min)${NC}"
 
+# Alarm 8: DynamoDB High Write Capacity
+echo -e "${GREEN}8. Creating DynamoDB Write Capacity alarm...${NC}"
+
+# Get DynamoDB table name
+DYNAMODB_TABLE=$(aws dynamodb list-tables --query "TableNames[?contains(@, 'PetClinicPayment') || contains(@, 'Payment')]" --output text | head -1)
+
+if [ -z "$DYNAMODB_TABLE" ]; then
+  echo -e "${YELLOW}⚠ No DynamoDB table found (PetClinicPayment). Skipping DynamoDB alarm.${NC}"
+else
+  aws cloudwatch put-metric-alarm \
+    --alarm-name "DynamoDB-Throttle-Alarm" \
+    --alarm-description "DynamoDB Write Capacity above 5 - Workshop Demo" \
+    --metric-name ConsumedWriteCapacityUnits \
+    --namespace AWS/DynamoDB \
+    --statistic Sum \
+    --period 60 \
+    --evaluation-periods 1 \
+    --threshold 5 \
+    --comparison-operator GreaterThanThreshold \
+    --dimensions Name=TableName,Value=$DYNAMODB_TABLE \
+    --alarm-actions $SNS_TOPIC_ARN \
+    --treat-missing-data notBreaching
+
+  echo -e "${GREEN}✓ DynamoDB alarm created (table: $DYNAMODB_TABLE, threshold: 5 WCU, period: 1 min)${NC}"
+fi
+
 echo ""
 echo -e "${GREEN}=== Alarms Created Successfully ===${NC}"
 echo ""
@@ -182,6 +208,9 @@ echo "  4. RDS-HighWriteIOPS-Workshop (Write IOPS > 1000)"
 echo "  5. RDS-HighReadLatency-Workshop (Read Latency > 10ms)"
 echo "  6. RDS-HighWriteLatency-Workshop (Write Latency > 10ms)"
 echo "  7. RDS-LowMemory-Workshop (Memory < 500MB)"
+if [ ! -z "$DYNAMODB_TABLE" ]; then
+  echo "  8. DynamoDB-Throttle-Alarm (Write Capacity > 5 WCU)"
+fi
 echo ""
 echo -e "${GREEN}View alarms in CloudWatch:${NC}"
 echo "https://console.aws.amazon.com/cloudwatch/home?region=us-east-2#alarmsV2:"
@@ -190,4 +219,8 @@ echo -e "${YELLOW}To trigger alarms, run:${NC}"
 echo "./rds-stress-test.sh"
 echo ""
 echo -e "${YELLOW}To delete alarms after workshop:${NC}"
-echo "aws cloudwatch delete-alarms --alarm-names RDS-HighCPU-Workshop RDS-HighConnections-Workshop RDS-HighReadIOPS-Workshop RDS-HighWriteIOPS-Workshop RDS-HighReadLatency-Workshop RDS-HighWriteLatency-Workshop RDS-LowMemory-Workshop"
+if [ ! -z "$DYNAMODB_TABLE" ]; then
+  echo "aws cloudwatch delete-alarms --alarm-names RDS-HighCPU-Workshop RDS-HighConnections-Workshop RDS-HighReadIOPS-Workshop RDS-HighWriteIOPS-Workshop RDS-HighReadLatency-Workshop RDS-HighWriteLatency-Workshop RDS-LowMemory-Workshop DynamoDB-Throttle-Alarm"
+else
+  echo "aws cloudwatch delete-alarms --alarm-names RDS-HighCPU-Workshop RDS-HighConnections-Workshop RDS-HighReadIOPS-Workshop RDS-HighWriteIOPS-Workshop RDS-HighReadLatency-Workshop RDS-HighWriteLatency-Workshop RDS-LowMemory-Workshop"
+fi
