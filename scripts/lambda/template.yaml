@@ -1,10 +1,11 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 
 Resources:
   BillingInfoProcessor:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: BillingInfo
       Handler: app.lambda_handler
       Runtime: python3.13
       CodeUri: ./src
@@ -34,6 +35,74 @@ Resources:
             Path: /process-billing
             Method: get
 
+  # EventBridge Scheduler Role - Points to version 1 specifically
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: BillingInfo-Scheduler-Role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambdaVersion1
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                # Only allows version 1 - when participant creates version 2, it will fail
+                Resource: !Sub "${BillingInfoProcessor.Arn}:1"
+
+  # EventBridge Schedule - runs every minute
+  SchedulerRule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: BillingInfoSchedule
+      Description: Schedule for Lambda - runs every minute
+      ScheduleExpression: rate(1 minute)
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      State: ENABLED
+      Target:
+        Arn: !GetAtt BillingInfoProcessor.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        RetryPolicy:
+          MaximumRetryAttempts: 0
+
+  # CloudWatch Alarm for EventBridge Scheduler Errors
+  SchedulerErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: BillingInfo-Scheduler-Error-Alarm
+      AlarmDescription: Alarm when EventBridge Scheduler fails to invoke Lambda
+      MetricName: TargetErrorCount
+      Namespace: AWS/Scheduler
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: ScheduleGroup
+          Value: default
+        - Name: ScheduleName
+          Value: BillingInfoSchedule
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  # SNS Topic for Alarm Notifications (optional)
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: BillingInfo-Alarm-Topic
+      DisplayName: BillingInfo Scheduler Error Notifications
+
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -44,6 +113,18 @@ Outputs:
     Description: "Lambda Function ARN"
     Value: !GetAtt BillingInfoProcessor.Arn
 
+  SchedulerRuleName:
+    Description: "EventBridge Scheduler Name"
+    Value: !Ref SchedulerRule
+
+  SchedulerErrorAlarmName:
+    Description: "CloudWatch Alarm for Scheduler Errors"
+    Value: !Ref SchedulerErrorAlarm
+
+  AlarmTopicArn:
+    Description: "SNS Topic for Alarm Notifications"
+    Value: !Ref AlarmTopic
+
   ApiUrl:
     Description: "API Gateway endpoint URL"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/process-billing"
@@ -51,3 +132,7 @@ Outputs:
   S3BucketName:
     Description: "S3 bucket name for storing artifacts"
     Value: !Ref S3Bucket
+
+  InstructionsForScenario:
+    Description: "Instructions to trigger the error scenario"
+    Value: "Currently working. To simulate error: 1) Publish a new Lambda version, 2) Update the EventBridge Schedule target to use the new version ARN. The schedule will fail because the role only has permission for version 1."
