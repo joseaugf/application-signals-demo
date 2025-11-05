@@ -20,9 +20,51 @@ check_if_loop_failed_and_exit() {
   fi
 }
 
+# Get account ID for investigation group policy
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+check_if_step_failed_and_exit "There was an error getting account ID, exiting"
+
 # SLR could be created via console or API. So EnableTopologyDiscovery API is called to enroll topology discovery.
 aws application-signals start-discovery --region $REGION
 check_if_step_failed_and_exit "There was an error enabling topology discovery, exiting"
+
+# Configure CloudWatch Investigations group policy
+echo "Configuring CloudWatch Investigations group policy..."
+INVESTIGATION_GROUP_ARN=$(aws aiops list-investigation-groups --region $REGION --query "investigationGroups[0].arn" --output text 2>/dev/null || echo "")
+if [ "$INVESTIGATION_GROUP_ARN" != "" ] && [ "$INVESTIGATION_GROUP_ARN" != "None" ]; then
+  echo "Found investigation group: $INVESTIGATION_GROUP_ARN"
+  aws aiops put-investigation-group-policy \
+    --identifier "$INVESTIGATION_GROUP_ARN" \
+    --policy '{
+      "Version": "2008-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "aiops.alarms.cloudwatch.amazonaws.com"
+          },
+          "Action": [
+            "aiops:CreateInvestigation",
+            "aiops:CreateInvestigationEvent"
+          ],
+          "Resource": "*",
+          "Condition": {
+            "StringEquals": {
+              "aws:SourceAccount": "'$ACCOUNT_ID'"
+            },
+            "ArnLike": {
+              "aws:SourceArn": "arn:aws:cloudwatch:'$REGION':'$ACCOUNT_ID':alarm:*"
+            }
+          }
+        }
+      ]
+    }' \
+    --region $REGION
+  check_if_step_failed_and_exit "There was an error setting investigation group policy, exiting"
+  echo "Investigation group policy configured successfully"
+else
+  echo "No investigation group found, skipping policy configuration"
+fi
 
 echo "Creating Service Level Objectives"
 
@@ -50,8 +92,8 @@ do
     --goal '{
       "Interval": {
         "RollingInterval": {
-          "DurationUnit": "HOUR",
-          "Duration": 1
+          "DurationUnit": "MINUTE",
+          "Duration": 5
         }
       },
       "AttainmentGoal": 95.0,
@@ -66,8 +108,12 @@ do
   fi
   break
 done
-check_if_loop_failed_and_exit $err "There was an error creating customers-service availability SLO"
-echo "$output"
+if [ $err -ne 0 ]; then
+  echo "ERROR: Failed to create customers-service availability SLO"
+  echo "AWS API Response: $output"
+  exit 1
+fi
+echo "SUCCESS: $output"
 
 # Create customers-service latency SLO
 echo "Creating customers-service latency SLO..."
@@ -94,8 +140,8 @@ do
     --goal '{
       "Interval": {
         "RollingInterval": {
-          "DurationUnit": "HOUR",
-          "Duration": 1
+          "DurationUnit": "MINUTE",
+          "Duration": 5
         }
       },
       "AttainmentGoal": 99.0,
@@ -110,5 +156,9 @@ do
   fi
   break
 done
-check_if_loop_failed_and_exit $err "There was an error creating customers-service latency SLO"
-echo "$output"
+if [ $err -ne 0 ]; then
+  echo "ERROR: Failed to create customers-service latency SLO"
+  echo "AWS API Response: $output"
+  exit 1
+fi
+echo "SUCCESS: $output"
