@@ -2,11 +2,12 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 
 Resources:
+  # Lambda Function - will have 2 published versions
   BillingInfoProcessor:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: BillingInfo
-      Handler: app.lambda_handler
+      Handler: lambda_handler.lambda_handler
       Runtime: python3.13
       CodeUri: ./src
       Policies:
@@ -48,28 +49,28 @@ Resources:
               Service: scheduler.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: InvokeLambdaVersion1
+        - PolicyName: InvokeLambdaVersion1Only
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                # Only allows version 1 - when participant creates version 2, it will fail
+                # Only allows version 1 - enforced policy
                 Resource: !Sub "${BillingInfoProcessor.Arn}:1"
 
-  # EventBridge Schedule - runs every minute
+  # EventBridge Schedule - runs every minute, points to V1 only
   SchedulerRule:
     Type: AWS::Scheduler::Schedule
     Properties:
       Name: BillingInfoSchedule
-      Description: Schedule for Lambda - runs every minute
+      Description: Schedule for Lambda Version 1 - runs every minute
       ScheduleExpression: rate(1 minute)
       FlexibleTimeWindow:
         Mode: "OFF"
       State: ENABLED
       Target:
-        Arn: !GetAtt BillingInfoProcessor.Arn
+        Arn: !Sub "${BillingInfoProcessor.Arn}:1"
         RoleArn: !GetAtt SchedulerRole.Arn
         RetryPolicy:
           MaximumRetryAttempts: 0
@@ -113,8 +114,16 @@ Outputs:
     Description: "Lambda Function ARN"
     Value: !GetAtt BillingInfoProcessor.Arn
 
+  BillingInfoProcessorVersion1:
+    Description: "Lambda Function Version 1 ARN (will be created by deploy script)"
+    Value: !Sub "${BillingInfoProcessor.Arn}:1"
+
+  BillingInfoProcessorVersion2:
+    Description: "Lambda Function Version 2 ARN (will be created by deploy script)"
+    Value: !Sub "${BillingInfoProcessor.Arn}:2"
+
   SchedulerRuleName:
-    Description: "EventBridge Scheduler Name"
+    Description: "EventBridge Scheduler Name (points to Version 1)"
     Value: !Ref SchedulerRule
 
   SchedulerErrorAlarmName:
@@ -135,4 +144,4 @@ Outputs:
 
   InstructionsForScenario:
     Description: "Instructions to trigger the error scenario"
-    Value: "Currently working. To simulate error: 1) Publish a new Lambda version, 2) Update the EventBridge Schedule target to use the new version ARN. The schedule will fail because the role only has permission for version 1."
+    Value: "Use deploy-two-versions.sh to deploy. Function will have Version 1 (app.py) and Version 2 (app2.py). Scheduler points to Version 1 only. Policy enforced for Version 1."
