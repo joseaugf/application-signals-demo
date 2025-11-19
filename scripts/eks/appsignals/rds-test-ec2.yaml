@@ -228,35 +228,13 @@ Resources:
           echo "Installing uv for ssm-user..."
           su - ssm-user -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' || echo "⚠ uv install for ssm-user had issues"
 
-          # Install Amazon Q CLI (simpler than Desktop for headless)
-          echo "Installing Amazon Q CLI for ec2-user..."
-          su - ec2-user -c '
-            mkdir -p ~/.local/bin
-            cd ~/.local/bin
-            # Download Q CLI binary
-            if curl -L "https://desktop-release.q.us-east-1.amazonaws.com/latest/q-x86_64-linux" -o q 2>/dev/null; then
-              chmod +x q
-              echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> ~/.bashrc
-              echo "✓ Amazon Q CLI installed"
-            else
-              echo "⚠ Failed to download Amazon Q CLI"
-            fi
-          ' || echo "⚠ Q installation for ec2-user had issues"
+          # Install kiro-cli for ec2-user
+          echo "Installing kiro-cli for ec2-user..."
+          su - ec2-user -c 'curl -fsSL https://cli.kiro.dev/install | bash' || echo "⚠ kiro-cli install for ec2-user had issues"
 
-          # Install Amazon Q CLI for ssm-user
-          echo "Installing Amazon Q CLI for ssm-user..."
-          su - ssm-user -c '
-            mkdir -p ~/.local/bin
-            cd ~/.local/bin
-            # Download Q CLI binary
-            if curl -L "https://desktop-release.q.us-east-1.amazonaws.com/latest/q-x86_64-linux" -o q 2>/dev/null; then
-              chmod +x q
-              echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> ~/.bashrc
-              echo "✓ Amazon Q CLI installed for ssm-user"
-            else
-              echo "⚠ Failed to download Amazon Q CLI for ssm-user"
-            fi
-          ' || echo "⚠ Q installation for ssm-user had issues"
+          # Install kiro-cli for ssm-user
+          echo "Installing kiro-cli for ssm-user..."
+          su - ssm-user -c 'curl -fsSL https://cli.kiro.dev/install | bash' || echo "⚠ kiro-cli install for ssm-user had issues"
 
           # Install CloudWatch agent
           echo "Installing CloudWatch agent..."
@@ -506,18 +484,17 @@ Resources:
           # Watch pods in real-time
           watch kubectl get pods -A
 
-          🤖 Amazon Q Desktop:
+          🤖 Kiro CLI:
           --------------------
-          # Amazon Q is pre-installed in ~/.local/bin/q
-          # PATH is automatically configured after login
+          # Kiro CLI is pre-installed and available in your PATH
 
-          q "how do I list all pods in kubernetes?"
-          q "show me how to connect to RDS"
-          q "explain this error: connection timeout"
+          kiro-cli chat "how do I list all pods in kubernetes?"
+          kiro-cli chat "show me how to connect to RDS"
+          kiro-cli chat "explain this error: connection timeout"
 
           # Get help with AWS CLI commands
-          q "aws eks list-clusters"
-          q "aws rds describe-db-instances"
+          kiro-cli chat "aws eks list-clusters"
+          kiro-cli chat "aws rds describe-db-instances"
 
           # MCP servers available via uvx:
           uvx awslabs.cloudwatch-mcp-server@latest
@@ -638,7 +615,7 @@ Resources:
           - stress-ng
           - jq, git
           - uv (Python package manager)
-          - Amazon Q CLI
+          - kiro-cli (AI assistant)
           - CloudWatch Agent
 
           Users Configured:
